@@ -20,7 +20,6 @@ def parse_args():
     p.add_argument("--pretrained", default="laion2b_s34b_b79k", help="OpenCLIP pretrained tag") # This is the model we chose to use for the assignment.
     p.add_argument("--device", default="auto", help="auto, cpu or cuda")
     p.add_argument("--batch-size", type=int, default=128)
-    p.add_argument("--limit", type=int, help="only embed the first N videos still to do, only for a test run")
     p.add_argument("--merge-only", action="store_true", help="skip embedding, just merge the cache files")
     return p.parse_args()
 
@@ -85,8 +84,6 @@ def embed_all_videos(args):
             no_zip.append(v)
             continue
         to_do.append(v)
-    if args.limit:
-        to_do = to_do[:args.limit]
     print(f"{len(to_do)} videos to embed, {len(no_zip)} skipped because their thumbnail zip is not downloaded yet")
     if not to_do:
         return
@@ -101,7 +98,7 @@ def embed_all_videos(args):
         os.replace(temp, cache_dir / f"{v}.npz")
         completed_shots += len(ids)
         rate = completed_shots / (time.time() - start)
-        print(f"[{k}/{len(to_do)}] {v}: {len(ids)} shots  ({rate:.1f} shots/s)", flush=True)
+#        print(f"[{k}/{len(to_do)}] {v}: {len(ids)} shots  ({rate:.1f} shots/s)", flush=True)
 
 # Merges all the per-video cache files and builds the files our search engine will load.
 def merge_cache(db_path, cache_dir, out_path, ids_out_path):
@@ -126,7 +123,7 @@ def merge_cache(db_path, cache_dir, out_path, ids_out_path):
     np.save(out_path, matrix.astype(np.float32))
     with open(ids_out_path, "w", encoding="utf-8") as fh:
         json.dump(ids, fh)
-    print(f"Saved {matrix.shape[0]} x {matrix.shape[1]} embeddings to {out_path} and the ids to {ids_out_path}")
+#    print(f"Saved {matrix.shape[0]} x {matrix.shape[1]} embeddings to {out_path} and the ids to {ids_out_path}")
 
 
 if __name__ == "__main__":

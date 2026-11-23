@@ -54,7 +54,7 @@ def load_shots(connection, msb_dir, first_index):
         connection.executemany("INSERT INTO shots VALUES(?,?,?,?,?,?,?)", rows)
         total += len(rows)
     connection.commit()
-    print(f"Loaded {total} shots from {len(files)} videos. {warning_count} tsv's had errors.")
+#    print(f"Loaded {total} shots from {len(files)} videos. {warning_count} tsv's had errors.")
 
 def load_metadata(connection, meta_csv):
     with open(meta_csv, newline="", encoding="utf-8") as file_handle:
