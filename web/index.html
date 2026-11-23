@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shot search</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- [B] Top bar: query, weight slider, video filter, k, task mode -->
+  <header id="topbar">
+    <input id="q" type="search" placeholder="Describe the shot ( / to focus )" autocomplete="off">
+    <label>Visual <input id="w" type="range" min="0" max="1" step="0.1" value="0.7"> Text
+      <output id="w-out">0.7</output></label>
+    <!-- [A] filter value is sent as ?video=<id>; backend must restrict search to that video -->
+    <span id="video-chip" hidden></span>
+    <label>k <input id="k" type="number" value="100" min="10" max="500" step="10"></label>
+    <select id="mode" title="Task mode"><option value="kis">KIS</option><option value="avs">AVS</option></select>
+    <!-- [A] POST /api/image-search, multipart field "file" (assumed) -->
+    <label class="btn">Image <input id="img" type="file" accept="image/*" hidden></label>
+    <span id="dres-status" title="DRES task status">DRES: ?</span>
+    <button id="help-btn" title="Shortcuts">?</button>
+  </header>
+
+  <main>
+    <section id="results-wrap">
+      <div id="results-info"></div>
+      <div id="grid" tabindex="0"></div>
+    </section>
+
+    <!-- [B] Sticky preview panel: single <video>, shot info, actions, verdict -->
+    <aside id="preview">
+      <video id="player" controls preload="metadata"></video>
+      <div id="shot-info">No shot selected</div>
+      <div class="row">
+        <button id="btn-loop">Loop</button>
+        <button id="btn-slow">0.5x</button>
+        <button id="btn-ctx-">-2 s</button>
+        <button id="btn-ctx+">+2 s</button>
+      </div>
+      <div class="row">
+        <button id="btn-similar">More like this (M)</button>
+        <button id="btn-video">Video shots (V)</button>
+      </div>
+      <div class="row">
+        <button id="btn-submit" class="primary">Submit (S)</button>
+        <button id="btn-submit-sel" hidden>Submit selected</button>
+      </div>
+      <div id="confirm" hidden></div>
+      <div id="verdict" hidden></div>
+      <h3>Submitted</h3>
+      <ul id="history"></ul>
+    </aside>
+  </main>
+
+  <!-- [B] Neighbour strip: all shots of the active video -->
+  <footer id="strip"></footer>
+
+  <div id="help" hidden></div>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
