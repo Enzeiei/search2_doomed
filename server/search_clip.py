@@ -70,6 +70,7 @@ def text_search(db, query, shot_ids, k):
     row_of = {sid: i for i, sid in enumerate(shot_ids)}
     return [(row_of[sid], -score) for sid, score in rows if sid in row_of]
 
+# Ranking algorithm to merge the rankings of visual and text search.
 def fuse_rrf(rank_lists, k=60, top=None):
     scores = {}
     for ranking in rank_lists:
@@ -77,6 +78,36 @@ def fuse_rrf(rank_lists, k=60, top=None):
             scores[row] = scores.get(row, 0.0) + 1.0 / (k + rank)
     ranked = sorted(scores.items(), key=lambda item: item[1], reverse=True)
     return ranked[:top]
+
+# Added function after initial testing, Hopefully will prevent getting multiple shots from one video and actually give us move videos that match the requirement.
+def group_results(results, shot_ids, db, gap_ms = 1000, max_len = 10000):
+    items = []
+    # Every result will be looked up
+    for row, score in results:
+        shot_id = shot_ids[row]
+        video_id, start_ms, end_ms = shot_information(db, shot_id)
+        items.append((video_id, start_ms, end_ms, score, shot_id))
+    
+    # Sort by video, then the timestamps, and merge neighbours afterwards
+    items.sort(key=lambda it: (it[0], it[1]))
+    segments = []
+    for video_id, start_ms, end_ms, score, shot_id in items:
+        prev = segments[-1] if segments else None
+        if prev and prev["video_id"] == video_id and start_ms - prev["end_ms"] <= gap_ms and max(prev["end_ms"], end_ms) - prev["start_ms"] <= max_len:
+            prev["end_ms"] = max(prev["end_ms"], end_ms)
+            prev["score"] = max(prev["score"], score)
+            prev["shot_ids"].append(shot_id)
+        else:
+            segments.append({
+                "video_id": video_id,
+                "start_ms": start_ms,
+                "end_ms": end_ms,
+                "score": score,
+                "shot_ids": [shot_id]
+            })
+
+    segments.sort(key=lambda seg: seg["score"], reverse=True)
+    return segments
 
 def shot_information(db, shot_id):
     row = db.execute(
@@ -87,11 +118,17 @@ def shot_information(db, shot_id):
         raise ValueError(f"Unknown Shot: {shot_id}")
     return row
 
-def print_results(results, shot_ids, db):
+# Not needed anymore
+""" def print_results(results, shot_ids, db):
     for rank, (row, score) in enumerate(results, start=1):
         shot_id = shot_ids[row]
         video_id, start_ms, end_ms = shot_information(db, shot_id)
         print(f"{rank:>3} {score:.3f}, {shot_id} video={video_id} {start_ms}-{end_ms} ms")
+ """
+def print_segments(segments):
+    for rank, segment in enumerate(segments, start =1):
+        print(f"{rank:>3} {segment['score']:.3f} video={segment['video_id']} "
+            f"{segment['start_ms']}-{segment['end_ms']} ms ({len(segment['shot_ids'])} shots)")
 
 def main():
     args = parse_args()
@@ -118,7 +155,8 @@ def main():
         results = visual or text
 
     print(f"took {(time.perf_counter() - t0) * 1000:.0f} ms")
-    print_results(results[: args.k], shot_ids, db)
+    segments = group_results(results, shot_ids, db)
+    print_segments(segments[:args.k])
 
 if __name__ == "__main__":
     main()
