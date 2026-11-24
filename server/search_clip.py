@@ -34,7 +34,6 @@ def load_index(data_dir):
     return(matrix, shot_ids, connection)
 
 def load_encoder(model_name, pretrained, device):
-    import torch
     import open_clip
     
     if device == "auto":
@@ -69,7 +68,7 @@ def text_search(db, query, shot_ids, k):
     ).fetchall()
 
     row_of = {sid: i for i, sid in enumerate(shot_ids)}
-    return [(row_of[sid], score) for sid, score in rows if sid in row_of]
+    return [(row_of[sid], -score) for sid, score in rows if sid in row_of]
 
 def fuse_rrf(rank_lists, k=60, top=None):
     scores = {}
