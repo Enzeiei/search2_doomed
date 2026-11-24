@@ -43,6 +43,8 @@ export const videoShots = id =>
   request(`/api/video/${encodeURIComponent(id)}/shots`, {}, 'video_shots.json');
 
 // [A] POST /api/submit {video_id,start_ms,end_ms}. Backend holds the DRES credentials and forwards.
+// [A] dres_client.submit() also needs an evaluation_id (not in this body). Backend should default it from
+// config/env; the UI may later send an optional "eval" override. video_id must stay a zero-padded STRING.
 // [A] PROPOSED response: {status:"ok"|"error", verdict:"CORRECT"|"WRONG"|"DUPLICATE"|"INDETERMINATE"|null, message}
 // [B] Mock mode: ?mock=1&fail=wrong|dup|none picks a fixture (default: correct).
 export function submit({video_id, start_ms, end_ms}){

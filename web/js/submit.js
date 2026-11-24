@@ -32,9 +32,7 @@ export async function confirm(){
   const tally = { CORRECT: 0, WRONG: 0, OTHER: 0 };
   for (const s of shots){
     const res = await api.submit({ video_id: s.video_id, start_ms: s.start_ms, end_ms: s.end_ms });
-    // [A] ASSUMED shape {status, verdict, message}; {error} on failure. Anything else shows as ERROR.
-    const verdict = res.error ? 'ERROR' : (res.verdict ?? 'ERROR');
-    const message = res.error || res.message || '';
+    const { verdict, message } = normalise(res);
     history.add({ shot_id: s.shot_id, video_id: s.video_id, n: s.n,
                   start_ms: s.start_ms, end_ms: s.end_ms, verdict, message });
     tally[verdict] !== undefined ? tally[verdict]++ : tally.OTHER++;
@@ -43,6 +41,21 @@ export async function confirm(){
   state.submitting = false; $('btn-submit').disabled = false;
   state.selected.clear();
   refresh(); emit();
+}
+
+// [B] Accepts either the flattened shape we asked Partner A for ({verdict, message}) or the raw
+// shape dres_client.py returns today ({http_status, accepted, response:{...}}).
+// [A] ASSUMPTION about DRES v2 (verify on the practice server): response.submission holds
+// CORRECT/WRONG/INDETERMINATE/UNDECIDABLE and response.description holds the text; 412 = no active task.
+function normalise(res){
+  if (res.error) return { verdict: 'ERROR', message: res.error };
+  if (res.verdict) return { verdict: res.verdict, message: res.message || '' };
+  const raw = res.response || {};
+  if (res.accepted === false || (res.http_status && res.http_status >= 400)){
+    const hint = res.http_status === 412 ? 'No active task. ' : '';
+    return { verdict: 'ERROR', message: `${hint}HTTP ${res.http_status} ${raw.description || raw.raw || ''}`.trim() };
+  }
+  return { verdict: raw.submission || 'ERROR', message: raw.description || '' };
 }
 
 // [B] Big verdict box; colour = CSS class = verdict. Raw DRES text is always shown.
