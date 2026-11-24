@@ -50,23 +50,30 @@ def encode_text(query, model, tokenizer, device):
         encode /= encode.norm(dim = -1, keepdim = True)
     return encode.squeeze(0).cpu().numpy().astype("float32")
 
-def visual_search(qvec, matrix, k):
-    scores = matrix @ qvec
-    top_score = np.argsort(scores)[::-1][:k]
-    return[(int(i), float(scores[i])) for i in top_score]
+def visual_search(qvec, matrix, k, rows=None):
+    if rows is None:
+        scores = matrix @ qvec
+        top_score = np.argsort(scores)[::-1][:k]
+        return[(int(i), float(scores[i])) for i in top_score]
+    scores = matrix[rows] @ qvec
+    top = np.argsort(scores)[::-1][k]
+    return[(int(rows[i]), float(scores[i])) for i in top]
 
-def text_search(db, query, shot_ids, k):
+def text_search(db, query, shot_ids, k, video_id=None):
     words = [w for w in query.split() if w]
     if not words:
         return []
     match_query = " OR ".join(f'"{w}"' for w in words)
 
-    rows = db.execute(
-        "SELECT shot_id, bm25(transcripts) FROM transcripts "
-        "WHERE transcripts MATCH ? ORDER BY bm25(transcripts) LIMIT ?",
-        (match_query, k),
-    ).fetchall()
+    sql = "SELECT shot_id, bm25(transcripts) FROM transcripts WHERE transcripts MATCH ?"
+    params = [match_query]
+    if video_id is not None:
+        sql += " AND video_id = ?"
+        params.append(video_id)
+    sql += " ORDER BY bm25(transcripts) LIMIT ?"
+    params.append(k)
 
+    rows = db.execute(sql, params).fetchall()
     row_of = {sid: i for i, sid in enumerate(shot_ids)}
     return [(row_of[sid], -score) for sid, score in rows if sid in row_of]
 
@@ -125,6 +132,24 @@ def shot_information(db, shot_id):
         video_id, start_ms, end_ms = shot_information(db, shot_id)
         print(f"{rank:>3} {score:.3f}, {shot_id} video={video_id} {start_ms}-{end_ms} ms")
  """
+
+def similarities(shot_id, matrix, shot_ids, k):
+    row_of = {sid: i for i, sid in enumerate(shot_ids)}
+    row = row_of[shot_id]
+    results = visual_search(matrix[row], matrix, k + 1)
+    return [(r, s) for r, s in results if r!=row][:k]
+
+def rows_of_video(db, video_id, shot_ids):
+    row_of = {sid: i for i, sid in enumerate(shot_ids)}
+    rows = db.execute(
+        "SELECT shot_id FROM shots WHERE video_id = ? ORDER BY n", (video_id,)
+    ).fetchall()
+    return np.array([row_of[sid] for (sid,) in rows if sid in row_of])
+
+def text_retrival(db, shot_id):
+    row = db.execute("SELECT text FROM transcripts WHERE shot_id = ?", (shot_id,)).fetchone()
+    return row[0] if row else None
+
 def print_segments(segments):
     for rank, segment in enumerate(segments, start =1):
         print(f"{rank:>3} {segment['score']:.3f} video={segment['video_id']} "
