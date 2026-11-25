@@ -1,22 +1,30 @@
-// [B] Submission log, persisted in localStorage so a page refresh does not lose it.
-const KEY = 'submissions-v1';
+// [B] Submission log in localStorage (key v2: entries carry shot_ids, so segment submits mark every shot).
+const KEY = 'submissions-v2';
 let items = [];
 try { items = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { items = []; }
 
-// [B] Record: {shot_id, video_id, n, start_ms, end_ms, verdict, message}
+// entry: {shot_id, shot_ids, video_id, n, start_ms, end_ms, verdict, message, label}
 export function add(entry){
   items.unshift({ t: Date.now(), ...entry });
   try { localStorage.setItem(KEY, JSON.stringify(items)); } catch {}
   render();
 }
 
-// [B] Latest verdict for a shot (grid badges; WRONG shots get greyed out so nobody resubmits).
-export const verdictFor = shot_id => items.find(i => i.shot_id === shot_id)?.verdict || null;
+// [B] Latest non-ERROR verdict per shot, summarised over a list of shot ids.
+export function summary(ids){
+  const out = { CORRECT: 0, WRONG: 0, OTHER: 0, other: null };
+  for (const id of ids){
+    const e = items.find(i => i.verdict !== 'ERROR' && i.shot_ids?.includes(id));
+    if (!e) continue;
+    if (e.verdict === 'CORRECT') out.CORRECT++;
+    else if (e.verdict === 'WRONG') out.WRONG++;
+    else { out.OTHER++; out.other = e.verdict; }
+  }
+  return out;
+}
 
 export function render(){
   document.getElementById('history').innerHTML = items.slice(0, 50).map(i =>
-    `<li>${new Date(i.t).toLocaleTimeString()} ${i.video_id} #${i.n} <b>${i.verdict ?? 'ERROR'}</b></li>`).join('');
+    `<li>${new Date(i.t).toLocaleTimeString()} ${i.video_id} ${i.label ?? ''} <b>${i.verdict ?? 'ERROR'}</b></li>`).join('');
 }
-
-// [B] Clear between practice runs and the live event.
 export function clear(){ items = []; localStorage.removeItem(KEY); render(); }

@@ -1,15 +1,16 @@
-// [B] Single shared state object + tiny pub/sub. No framework needed.
+// [B] Shared state + tiny pub/sub.
+// An "item" is one result: either a segment from the grid (shot_ids.length >= 1) or a single shot from the strip.
 export const state = {
-  results: [],        // Result[] from last search
-  activeIndex: -1,    // index into results
-  active: null,       // currently previewed Result (may be a neighbour not in results)
-  selected: new Set(),// shot_ids selected for AVS
-  videoShots: [],     // shots of the active video (neighbour strip)
-  videoFilter: null,  // video_id restricting search, or null
-  mode: 'kis',        // 'kis' | 'avs'
-  submitting: false,  // true while a submit request is in flight
+  results: [],          // item[] from the last query
+  activeIndex: -1,
+  active: null,         // grid item being previewed
+  shot: null,           // the single shot currently focused (default: the segment's middle shot, or a strip click)
+  selected: new Map(),  // AVS: item.key -> item (persists across queries)
+  videoShots: [],       // shots of the active video (neighbour strip)
+  videoFilter: null,
+  mode: 'kis',          // task mode 'kis' | 'avs'
+  submitting: false,
 };
 const listeners = new Set();
 export const subscribe = fn => (listeners.add(fn), () => listeners.delete(fn));
-// [B] Call after mutating state; subscribers re-render.
 export function emit(){ listeners.forEach(fn => fn(state)); }

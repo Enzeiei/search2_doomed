@@ -7,18 +7,21 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <!-- [B] Top bar: query, weight slider, video filter, k, task mode -->
   <header id="topbar">
     <input id="q" type="search" placeholder="Describe the shot ( / to focus )" autocomplete="off">
-    <label>Visual <input id="w" type="range" min="0" max="1" step="0.1" value="0.7"> Text
-      <output id="w-out">0.7</output></label>
-    <!-- [A] filter value is sent as ?video=<id>; backend must restrict search to that video -->
+    <!-- [A] GET /api/search?mode=visual|text|both. No weight parameter exists yet. [ ] ] cycle this. -->
+    <label>Search
+      <select id="smode">
+        <option value="both" selected>Visual + text</option>
+        <option value="visual">Visual only</option>
+        <option value="text">Transcript only</option>
+      </select></label>
+    <!-- [A] filter is sent as ?video_id=<id> -->
     <span id="video-chip" hidden></span>
-    <label>k <input id="k" type="number" value="100" min="10" max="500" step="10"></label>
+    <label>Results <input id="limit" type="number" value="60" min="10" max="200" step="10"></label>
     <select id="mode" title="Task mode"><option value="kis">KIS</option><option value="avs">AVS</option></select>
-    <!-- [A] POST /api/image-search, multipart field "file" (assumed) -->
-    <label class="btn">Image <input id="img" type="file" accept="image/*" hidden></label>
-    <span id="dres-status" title="DRES task status">DRES: ?</span>
+    <!-- [A] POST /api/submit requires evaluation_id in the body, so the UI keeps it here. -->
+    <label>DRES eval <input id="eval" type="text" placeholder="evaluation ID" autocomplete="off"></label>
     <button id="help-btn" title="Shortcuts">?</button>
   </header>
 
@@ -28,23 +31,31 @@
       <div id="grid" tabindex="0"></div>
     </section>
 
-    <!-- [B] Sticky preview panel: single <video>, shot info, actions, verdict -->
     <aside id="preview">
       <video id="player" controls preload="metadata"></video>
       <div id="shot-info">No shot selected</div>
+      <div id="shot-text"></div>
       <div class="row">
         <button id="btn-loop">Loop</button>
         <button id="btn-slow">0.5x</button>
-        <button id="btn-ctx-">-2 s</button>
-        <button id="btn-ctx+">+2 s</button>
+        <button id="btn-ctx-" title="Shrink the preview window by 2 s each side">Tighter</button>
+        <button id="btn-ctx+" title="Widen the preview window by 2 s each side">Wider</button>
       </div>
       <div class="row">
         <button id="btn-similar">More like this (M)</button>
         <button id="btn-video">Video shots (V)</button>
       </div>
       <div class="row">
+        <label>Submit range
+          <select id="range">
+            <option value="shot" selected>Selected shot</option>
+            <option value="segment">Whole segment</option>
+          </select></label>
+      </div>
+      <div id="target-info"></div>
+      <div class="row">
         <button id="btn-submit" class="primary">Submit (S)</button>
-        <button id="btn-submit-sel" hidden>Submit selected</button>
+        <button id="btn-submit-sel" hidden>Submit selected (0)</button>
       </div>
       <div id="confirm" hidden></div>
       <div id="verdict" hidden></div>
@@ -53,9 +64,7 @@
     </aside>
   </main>
 
-  <!-- [B] Neighbour strip: all shots of the active video -->
   <footer id="strip"></footer>
-
   <div id="help" hidden></div>
   <script type="module" src="js/main.js"></script>
 </body>

@@ -67,3 +67,9 @@ main{flex:1;display:flex;min-height:0}
 #help{position:fixed;inset:10% 20%;background:var(--panel);border:1px solid var(--line);padding:20px;overflow:auto}
 
 [hidden]{display:none!important}
+button,.btn{cursor:pointer}
+#eval{width:140px}
+#shot-text{font-size:13px;color:var(--dim);max-height:4.2em;overflow:auto;margin:4px 0}
+#target-info{font-size:13px;color:var(--dim);margin:2px 0 6px}
+.cell .grp{position:absolute;top:2px;left:2px;padding:0 6px;font-size:12px;border-radius:3px;background:#000}
+#strip img.member{border-color:#5b6572}

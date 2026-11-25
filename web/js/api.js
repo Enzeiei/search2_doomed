@@ -1,61 +1,87 @@
-// [B] ALL network calls live here. Add ?mock=1 to the URL to use fixtures in mock/.
-// [A] The endpoints below are the PROPOSED contract; adjust once agreed with Partner A.
-const MOCK = new URLSearchParams(location.search).has('mock');
+// [B] All network calls. ?mock=1 uses fixtures in mock/ (same shapes as the real backend).
+// [A] Contract below = server/app.py as of the last upload.
+const params = new URLSearchParams(location.search);
+export const MOCK = params.has('mock');
 const delay = ms => new Promise(r => setTimeout(r, ms));
 
-// [B] Normalises every failure to {error, status}. The UI never sees raw exceptions.
+export const videoUrl = id => (MOCK ? `mock/videos/${id}.mp4` : `/video/${id}.mp4`);
+export const shotNumber = id => { const m = /^shot(\d+)_(\d+)$/.exec(id); return m ? +m[2] : null; };
+export const label = it => it.shot_ids.length > 1
+  ? `shots ${shotNumber(it.shot_ids[0])}-${shotNumber(it.shot_ids[it.shot_ids.length - 1])}`
+  : `shot ${it.n}`;
+
+// [A] FastAPI errors are {"detail": "..."} (or a list for 422). Flatten to one string.
+function describe(body){
+  const d = body && (body.detail ?? body.error);
+  if (!d) return '';
+  return Array.isArray(d) ? d.map(x => `${(x.loc || []).slice(1).join('.')}: ${x.msg}`).join('; ') : String(d);
+}
+
+// [B] Never throws. Failures come back as {error, status}.
 async function request(url, opts, mockFile){
   try{
     if (MOCK){
-      await delay(200 + Math.random()*300);
-      return await (await fetch('mock/' + mockFile)).json();
+      await delay(150 + Math.random() * 250);
+      const r = await fetch('mock/' + mockFile);
+      return await r.json();
     }
     const r = await fetch(url, opts);
     const body = await r.json().catch(() => ({}));
-    // [A] ASSUMPTION: errors are {error:"..."} with a proper HTTP status code.
-    if (!r.ok) return { error: body.error || r.statusText, status: r.status };
+    if (!r.ok) return { error: describe(body) || r.statusText, status: r.status };
     return body;
   }catch(e){
     return { error: 'Backend unreachable', status: 0 };
   }
 }
 
-// [A] GET /api/search?q&w&video&k -> Result[] (CLIP text embedding + transcript FTS, blended by w).
-// [A] AGREE the direction of w (1 = all visual? or all text?) so the slider labels are correct.
-export function search({q, w, video, k}){
-  const p = new URLSearchParams({q, w, k});
-  if (video) p.set('video', video);
-  return request('/api/search?' + p, {}, 'search.json');
+// [A] A grouped segment has no shot_id. We key it by its middle shot, which is also the shot the
+// backend uses for thumb_url (shot_ids[len // 2]).
+export function segmentToItem(seg){
+  const ids = seg.shot_ids, rep = ids[Math.floor(ids.length / 2)];
+  return { key: rep, shot_id: rep, shot_ids: ids, video_id: seg.video_id, n: shotNumber(rep),
+           start_ms: seg.start_ms, end_ms: seg.end_ms, score: seg.score,
+           thumb_url: seg.thumb_url, video_url: seg.video_url, text: seg.text || '' };
+}
+// [A] /api/video/<id>/shots returns bare shots, with no n and no video_url.
+export function shotToItem(video_id, s){
+  return { key: s.shot_id, shot_id: s.shot_id, shot_ids: [s.shot_id], video_id, n: shotNumber(s.shot_id),
+           start_ms: s.start_ms, end_ms: s.end_ms, score: null,
+           thumb_url: s.thumb_url, video_url: videoUrl(video_id), text: '' };
+}
+const asItems = res => (res.error ? res : { items: res.results.map(segmentToItem) });
+
+// [A] GET /api/search?q&mode&video_id&limit -> {query, took_ms, results: segment[]}.
+// [A] Bug to fix on the backend: video_id with mode visual/both currently returns a 500 (see review notes).
+// [A] limit is effectively capped at 200 (candidate pool).
+export async function search({ q, mode, video_id, limit }){
+  const p = new URLSearchParams({ q, mode, limit });
+  if (video_id) p.set('video_id', video_id);
+  return asItems(await request('/api/search?' + p, {}, 'search.json'));
 }
 
-// [A] GET /api/similar?shot_id=... -> Result[] (nearest neighbours in CLIP space).
-export const similar = shot_id =>
-  request('/api/similar?shot_id=' + encodeURIComponent(shot_id), {}, 'similar.json');
-
-// [A] POST /api/image-search, multipart field "file" (assumed) -> Result[] (image embedded with CLIP).
-export function imageSearch(file, k = 100){
-  const fd = new FormData(); fd.append('file', file); fd.append('k', k);
-  return request('/api/image-search', { method: 'POST', body: fd }, 'search.json');
+// [A] GET /api/similar/{shot_id}?limit -> same shape as search.
+export async function similar(shot_id, limit = 60){
+  return asItems(await request(`/api/similar/${encodeURIComponent(shot_id)}?limit=${limit}`, {}, 'similar.json'));
 }
 
-// [A] GET /api/video/<id>/shots -> Result[] ordered by n (neighbour strip, "all shots of video").
-export const videoShots = id =>
-  request(`/api/video/${encodeURIComponent(id)}/shots`, {}, 'video_shots.json');
+// [A] GET /api/video/{id}/shots -> {video_id, shots:[{shot_id,start_ms,end_ms,thumb_url}]}; 404 if unknown.
+export async function videoShots(id){
+  const res = await request(`/api/video/${encodeURIComponent(id)}/shots`, {}, `video_shots/${id}.json`);
+  return res.error ? res : { items: res.shots.map(s => shotToItem(res.video_id ?? id, s)) };
+}
 
-// [A] POST /api/submit {video_id,start_ms,end_ms}. Backend holds the DRES credentials and forwards.
-// [A] dres_client.submit() also needs an evaluation_id (not in this body). Backend should default it from
-// config/env; the UI may later send an optional "eval" override. video_id must stay a zero-padded STRING.
-// [A] PROPOSED response: {status:"ok"|"error", verdict:"CORRECT"|"WRONG"|"DUPLICATE"|"INDETERMINATE"|null, message}
-// [B] Mock mode: ?mock=1&fail=wrong|dup|none picks a fixture (default: correct).
-export function submit({video_id, start_ms, end_ms}){
-  const fail = new URLSearchParams(location.search).get('fail');
-  const file = { wrong:'submit_wrong.json', dup:'submit_dup.json', none:'submit_none.json' }[fail] || 'submit_ok.json';
+// [A] POST /api/submit {evaluation_id, video_id, start_ms, end_ms} ->
+//     {http_status, accepted, response:{...DRES body}}. 503 if DRES credentials are not set on the server.
+// [B] Mock: &fail=wrong|indet|none|net picks a fixture.
+export async function submit({ evaluation_id, video_id, start_ms, end_ms }){
+  const fail = params.get('fail');
+  if (MOCK && fail === 'net') return { error: 'Backend unreachable', status: 0 };
+  const file = { wrong: 'submit_wrong.json', indet: 'submit_indet.json', none: 'submit_none.json' }[fail] || 'submit_ok.json';
   return request('/api/submit', {
-    method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({video_id, start_ms, end_ms}),
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ evaluation_id, video_id, start_ms, end_ms }),
   }, file);
 }
 
-// [A] OPTIONAL GET /api/status -> {logged_in, task_active, task_name, time_left_s}.
-// [B] Polled every 5 s so we know if a task is active before submitting.
-export const status = () => request('/api/status', {}, 'status.json');
+// Not implemented by the backend yet, so the UI has no controls for them:
+//   image search (POST /api/image-search) and DRES task status (GET /api/status).
