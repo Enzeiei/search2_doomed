@@ -25,7 +25,7 @@ def parse_args():
 
 def load_index(data_dir):
     matrix = np.load(data_dir / "embeddings.npy")
-    connection = sqlite3.connect(data_dir /"shots.db")
+    connection = sqlite3.connect(data_dir /"shots.db", check_same_thread=False)
 
     with open(data_dir / "shot_ids.json") as f:
         shot_ids = json.load(f)
