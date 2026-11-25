@@ -78,11 +78,13 @@ def text_search(db, query, shot_ids, k, video_id=None):
     return [(row_of[sid], -score) for sid, score in rows if sid in row_of]
 
 # Ranking algorithm to merge the rankings of visual and text search.
-def fuse_rrf(rank_lists, k=60, top=None):
+def fuse_rrf(rank_lists, k=60, top=None, weights=None):
+    if weights is None:
+        weights = [1.0] * len(rank_lists)
     scores = {}
     for ranking in rank_lists:
         for rank, row in enumerate(ranking, start=1):
-            scores[row] = scores.get(row, 0.0) + 1.0 / (k + rank)
+            scores[row] = scores.get(row, 0.0) + weights / (k + rank)
     ranked = sorted(scores.items(), key=lambda item: item[1], reverse=True)
     return ranked[:top]
 

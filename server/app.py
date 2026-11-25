@@ -3,10 +3,11 @@ import re
 import zipfile
 from contextlib import asynccontextmanager
 from pathlib import Path
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query 
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, JSONResponse
 from pydantic import BaseModel
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from server import search_clip as sc
 from server.dres_client import DRESClient
 import time
@@ -32,6 +33,10 @@ async def lifespan(app):
     yield
 
 app = FastAPI(lifespan=lifespan)
+@app.exception_handler(StarletteHTTPException)
+async def http_error(request, exc):
+    return JSONResponse({"error": exc.detail}, status_code=exc.status_code)
+
 def respond(query, results, limit, t0):
     """Group ranked shots into segments, cut to `limit` and build the JSON reply."""
     segments = sc.group_results(results, state["shot_ids"], state["db"])
@@ -60,7 +65,9 @@ def segments_to_json(segments):
     return output
 
 @app.get("/api/search")
-def api_search(q: str, mode: str = "both", video_id: str | None = None, limit: int=60):
+def api_search(q: str, mode: str = "both", video_id: str | None = None, limit: int= Query(60, ge=1, le=500), w: float | None = Query(None, ge=0, le=1)):
+    if w is not None:
+        mode = 'visual' if w >= 0.999 else "text" if w <= 0.001 else "both"
     if mode not in ("visual", "text", "both") or not q.strip():
         raise HTTPException(400, "Error on query")
     
@@ -79,7 +86,8 @@ def api_search(q: str, mode: str = "both", video_id: str | None = None, limit: i
     if mode == "both":
         visuals = [row for row, _ in visual]
         texts = [row for row, _ in text]
-        results = sc.fuse_rrf([visuals, texts], top=200)
+        weights = [w, 1 - w] if w is not None else None
+        results = sc.fuse_rrf([visuals, texts], top=200, weights=weights)
     else:
         results = visual or text
         
@@ -139,7 +147,7 @@ def api_video_shots(video_id):
     }
     
 class Submission(BaseModel):
-    evaluation_id : str
+    evaluation_id : str | None = None
     video_id: str
     start_ms: int
     end_ms: int
@@ -152,10 +160,22 @@ def api_submit(body: Submission):
     if body.start_ms < 0 or body.end_ms < body.start_ms:
         raise HTTPException(400, "Error with Time Ranges")
     
+    evaluation_id = body.evaluation_id or os.environ.get("DRES_EVALUATION_ID")
+    if not evaluation_id:
+        raise HTTPException(400, "no evaluation_id (send one, or set DRES_EVALUATION_ID)")
+    if body.start_ms < 0 or body.end_ms < body.start_ms:
+        raise HTTPException(400, "bad time range")
     try:
-        return dres.submit(body.evaluation_id, body.video_id, body.start_ms, body.end_ms)
+        result = dres.submit(evaluation_id, body.video_id, body.start_ms, body.end_ms)
     except Exception as exc:
-        raise HTTPException(502, f"DRES error{exc}")
+        raise HTTPException(502, f"DRES error: {exc}")
+    reply = result.get("response") or {}
+    return {
+        "status": "ok" if result.get("accepted") else "error",
+        "verdict": reply.get("submission"),
+        "message": reply.get("description", ""),
+        "http_status": result.get("http_status"),
+    }
     
 if WEB_DIR.is_dir():
     app.mount("/", StaticFiles(directory=WEB_DIR, html = True), name="web")
