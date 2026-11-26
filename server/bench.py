@@ -10,6 +10,7 @@ import argparse
 import math
 import platform
 import statistics
+import time
 
 import requests
 
@@ -52,29 +53,46 @@ def main():
     for _ in range(3):
         s.get(f"{args.base}/api/search", params={"q": QUERIES[0], "mode": "both", "limit": args.limit}, timeout=60)
 
+    # Results are cached server-side, so only rep 0 of each query is a cold lookup; later reps add a word to
+    # change the cache key and stay cold too. 'server' is the backend's own took_ms (now the full request);
+    # 'round trip' is measured here and also includes the network and JSON parsing.
     shots_for_similar = []
     for mode in ("visual", "text", "both"):
-        times = []
+        server, rtt, stages = [], [], {}
         for q in QUERIES:
-            for _ in range(args.reps):
+            for rep in range(args.reps):
+                query = q if rep == 0 else f"{q} {'again ' * rep}".strip()   # rep 0 = cold, later reps differ slightly
+                t = time.perf_counter()
                 r = s.get(f"{args.base}/api/search",
-                        params={"q": q, "mode": mode, "limit": args.limit}, timeout=60)
+                        params={"q": query, "mode": mode, "limit": args.limit}, timeout=60)
+                elapsed = (time.perf_counter() - t) * 1000
                 if r.status_code != 200:
                     continue
                 body = r.json()
-                times.append(body["took_ms"])
+                server.append(body["took_ms"])
+                rtt.append(elapsed)
+                for name, ms in body.get("timings", {}).items():
+                    stages.setdefault(name, []).append(ms)
                 if mode == "both" and body["results"] and len(shots_for_similar) < len(QUERIES):
                     shots_for_similar.append(body["results"][0]["shot_ids"][0])
-        summarise(f"{mode} query", times)
+        summarise(f"{mode} query (server)", server)
+        summarise(f"{mode} query (round trip)", rtt)
+        for name, values in stages.items():
+            if name != "total":
+                summarise(f"  {name}", values)
 
-    times = []
+    server, rtt = [], []
     for sid in shots_for_similar:
         for _ in range(args.reps):
+            t = time.perf_counter()
             r = s.get(f"{args.base}/api/similar/{sid}", params={"limit": args.limit}, timeout=60)
+            elapsed = (time.perf_counter() - t) * 1000
             if r.status_code == 200:
-                times.append(r.json()["took_ms"])
-    summarise("more like this", times)
+                server.append(r.json()["took_ms"])
+                rtt.append(elapsed)
+    summarise("more like this (server)", server)
+    summarise("more like this (round trip)", rtt)
 
 
 if __name__ == "__main__":
-    main()
+    main()
