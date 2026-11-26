@@ -171,10 +171,10 @@ def api_submit(body: Submission):
         raise HTTPException(502, f"DRES error: {exc}")
     reply = result.get("response") or {}
     return {
+        **result,  # keeps http_status, accepted and response which web/js/submit.js reads
         "status": "ok" if result.get("accepted") else "error",
         "verdict": reply.get("submission"),
         "message": reply.get("description", ""),
-        "http_status": result.get("http_status"),
     }
     
 if WEB_DIR.is_dir():

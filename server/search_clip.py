@@ -56,11 +56,12 @@ def visual_search(qvec, matrix, k, rows=None):
         top_score = np.argsort(scores)[::-1][:k]
         return[(int(i), float(scores[i])) for i in top_score]
     scores = matrix[rows] @ qvec
-    top = np.argsort(scores)[::-1][k]
+    top = np.argsort(scores)[::-1][:k]
     return[(int(rows[i]), float(scores[i])) for i in top]
 
 def text_search(db, query, shot_ids, k, video_id=None):
-    words = [w for w in query.split() if w]
+    words = [w.replace('"', '') for w in query.split()]
+    words = [w for w in words if w]
     if not words:
         return []
     match_query = " OR ".join(f'"{w}"' for w in words)
@@ -82,9 +83,9 @@ def fuse_rrf(rank_lists, k=60, top=None, weights=None):
     if weights is None:
         weights = [1.0] * len(rank_lists)
     scores = {}
-    for ranking in rank_lists:
+    for weight, ranking in zip(weights, rank_lists):
         for rank, row in enumerate(ranking, start=1):
-            scores[row] = scores.get(row, 0.0) + weights / (k + rank)
+            scores[row] = scores.get(row, 0.0) + weight / (k + rank)
     ranked = sorted(scores.items(), key=lambda item: item[1], reverse=True)
     return ranked[:top]
 
