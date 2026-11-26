@@ -53,17 +53,18 @@ const asItems = res => (res.error ? res : { items: res.results.map(segmentToItem
 // [A] GET /api/search?q&mode&video_id&limit -> {query, took_ms, results: segment[]}.
 // [A] Bug to fix on the backend: video_id with mode visual/both currently returns a 500 (see review notes).
 // [A] limit is effectively capped at 200 (candidate pool).
-export function search({ q, mode, w, video_id, video, limit, k }){
+export async function search({ q, mode, w, video_id, video, limit, k }){
   const p = new URLSearchParams({ q, limit: limit ?? k ?? 60 });
   if (mode) p.set('mode', mode);
   if (w !== undefined && w !== null) p.set('w', w);
   const v = video_id ?? video;
   if (v) p.set('video_id', v);
-  return request('/api/search?' + p, {}, 'search.json');
+  return asItems(await request('/api/search?' + p, {}, 'search.json'));
 }
-export const similar = shot_id =>
-  request('/api/similar/' + encodeURIComponent(shot_id), {}, 'similar.json');
 
+export async function similar(shot_id, limit = 60){
+  return asItems(await request(`/api/similar/${encodeURIComponent(shot_id)}?limit=${limit}`, {}, 'similar.json'));
+}
 // [A] GET /api/video/{id}/shots -> {video_id, shots:[{shot_id,start_ms,end_ms,thumb_url}]}; 404 if unknown.
 export async function videoShots(id){
   const res = await request(`/api/video/${encodeURIComponent(id)}/shots`, {}, `video_shots/${id}.json`);
