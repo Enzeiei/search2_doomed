@@ -21,8 +21,8 @@ class DRESClient:
         if not self.username or not self.password:
             raise RuntimeError("Username and password neds to be set...")
         r = self.http.post(f"{self.base_url}/api/v2/login",
-                           json={"username": self.username, "password": self.password},
-                           timeout=self.timeout)
+            json={"username": self.username, "password": self.password},
+            timeout=self.timeout)
         r.raise_for_status()
         self.logged_in = True
         return r.json()

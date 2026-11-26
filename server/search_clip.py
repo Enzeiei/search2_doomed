@@ -42,9 +42,9 @@ def parse_args():
     p = argparse.ArgumentParser(description="Search through Video Index")
     p.add_argument("query", help="text query")
     p.add_argument("--data-dir", default=os.environ.get("DATA_DIR", "data"),
-                   help="The folder that holds the embedding, shot_id json and the database of shots.")
+                    help="The folder that holds the embedding, shot_id json and the database of shots.")
     p.add_argument("--mode", choices=["visual", "text", "both"], default="both",
-                   help="How the engine decides to search for answers to submit")
+                    help="How the engine decides to search for answers to submit")
     p.add_argument("--k", type=int, default=20)
     p.add_argument("--model", default=DEFAULT_MODEL)
     p.add_argument("--pretrained", default=DEFAULT_PRETRAINED)
@@ -298,7 +298,7 @@ class Engine:
                 prev["rows"].append(row)
             else:
                 segments.append({"video_id": video_id, "start_ms": start, "end_ms": end,
-                                 "score": score, "rows": [row]})
+                    "score": score, "rows": [row]})
         segments.sort(key=lambda seg: seg["score"], reverse=True)
         return segments
 
@@ -336,7 +336,7 @@ class Engine:
         rows = self.db().execute(
             "SELECT shot_id, start_ms, end_ms FROM shots WHERE video_id = ? ORDER BY n", (video_id,)).fetchall()
         shots = [{"shot_id": sid, "start_ms": s, "end_ms": e, "thumb_url": f"/thumb/{sid}.png"}
-                 for sid, s, e in rows]
+                for sid, s, e in rows]
         if shots:
             self.video_shots_cache.put(video_id, shots)
         return shots
@@ -345,7 +345,7 @@ class Engine:
 def print_segments(segments):
     for rank, seg in enumerate(segments, start=1):
         print(f"{rank:>3} {seg['score']:.3f} video={seg['video_id']} "
-              f"{seg['start_ms']}-{seg['end_ms']} ms ({len(seg['rows'])} shots)")
+            f"{seg['start_ms']}-{seg['end_ms']} ms ({len(seg['rows'])} shots)")
 
 
 def main():
@@ -355,7 +355,7 @@ def main():
     results, timings = engine.search(args.query, args.mode, k=CANDIDATES)
     segments = engine.group(results)
     print(f"took {(time.perf_counter() - t0) * 1000:.0f} ms  "
-          + " ".join(f"{k}={v:.1f}" for k, v in timings.items()))
+        + " ".join(f"{k}={v:.1f}" for k, v in timings.items()))
     print_segments(segments[:args.k])
 
 
