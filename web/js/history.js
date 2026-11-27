@@ -1,4 +1,4 @@
-// [B] Submission log in localStorage (key v2: entries carry shot_ids, so segment submits mark every shot).
+//  Submission log in localStorage (key v2: entries carry shot_ids, so segment submits mark every shot).
 const KEY = 'submissions-v2';
 let items = [];
 try { items = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { items = []; }
@@ -10,7 +10,7 @@ export function add(entry){
   render();
 }
 
-// [B] Latest non-ERROR verdict per shot, summarised over a list of shot ids.
+//  Latest non-ERROR verdict per shot, summarised over a list of shot ids.
 export function summary(ids){
   const out = { CORRECT: 0, WRONG: 0, OTHER: 0, other: null };
   for (const id of ids){
@@ -27,4 +27,3 @@ export function render(){
   document.getElementById('history').innerHTML = items.slice(0, 50).map(i =>
     `<li>${new Date(i.t).toLocaleTimeString()} ${i.video_id} ${i.label ?? ''} <b>${i.verdict ?? 'ERROR'}</b></li>`).join('');
 }
-export function clear(){ items = []; localStorage.removeItem(KEY); render(); }

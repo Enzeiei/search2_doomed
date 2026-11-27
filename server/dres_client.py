@@ -30,7 +30,7 @@ class DRESClient:
     def _post_submission(self, evaluation_id, body):
         return self.http.post(f"{self.base_url}/api/v2/submit/{evaluation_id}", json=body, timeout=self.timeout)
 
-    def submit(self, evaluation_id, video_id, start_ms, end_ms, collection=None):
+    def submit(self, evaluation_id, video_id, start_ms, end_ms):
         if not self.logged_in:
             self.login()
         answer = {"mediaItemName": str(video_id), "start": int(start_ms), "end": int(end_ms)}
@@ -56,7 +56,6 @@ def main():
     s.add_argument("--video", required=True, help="Video ID (00031, 00036, etc)")
     s.add_argument("--start", type=int, required=True, help="Start time in milliseconds")
     s.add_argument("--end", type=int, required=True, help="End time in milliseconds")
-    s.add_argument("--collection", help="media collection name, optional")
     args = p.parse_args()
 
     client = DRESClient()
@@ -64,7 +63,7 @@ def main():
         if args.command == "login":
             print(json.dumps(client.login(), indent = 2))
         else:
-            result = client.submit(args.eval, args.video, args.start, args.end, args.collection)
+            result = client.submit(args.eval, args.video, args.start, args.end)
             print(json.dumps(result, indent = 2))
     except (requests.RequestException, RuntimeError) as e:
         sys.exit(f"DRES error: {e}")

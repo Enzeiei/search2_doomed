@@ -1,4 +1,4 @@
-// [B] Shared state + tiny pub/sub.
+// Shared state + tiny pub/sub.
 // An "item" is one result: either a segment from the grid (shot_ids.length >= 1) or a single shot from the strip.
 export const state = {
   results: [],          // item[] from the last query

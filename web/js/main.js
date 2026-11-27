@@ -1,4 +1,4 @@
-// [B] Wiring: queries, active item / focused shot, strip, shortcuts.
+//  Wiring: queries, active item / focused shot, strip, shortcuts.
 import { state, subscribe } from './state.js';
 import * as api from './api.js';
 import * as grid from './grid.js';
@@ -13,10 +13,10 @@ const MODES = ['visual', 'text', 'both'];
 try { $('eval').value = localStorage.getItem('eval-id') || ''; } catch {}
 $('eval').addEventListener('change', () => { try { localStorage.setItem('eval-id', submit.evalId()); } catch {} });
 
-// ---------- queries ----------
-// [B] Latest query wins: a slow earlier response must never overwrite a newer one. The round-trip time
-// shown is measured here (end to end), which is the number to use for the report. The server's took_ms
-// excludes the transcript lookups.
+// queries
+/* Latest query wins: a slow earlier response must never overwrite a newer one. The round-trip time
+shown is measured here (end to end), which is the number to use for the report. The server's took_ms
+includes the transcript lookups. */
 let token = 0;
 async function runQuery(fn){
   const mine = ++token, t0 = performance.now();
@@ -37,7 +37,7 @@ const runSearch = () => {
   const q = $('q').value.trim(); if (!q) return;
   runQuery(() => api.search({ q, mode: $('smode').value, video_id: state.videoFilter, limit: $('limit').value }));
 };
-// [B] "More like this" uses the focused shot (strip click) if there is one, else the active item's middle shot.
+//  "More like this" uses the focused shot (strip click) if there is one, else the active item's middle shot.
 const moreLikeThis = () => {
   const id = state.shot?.shot_id ?? state.active?.shot_id; if (!id) return;
   runQuery(() => api.similar(id, $('limit').value));
@@ -47,8 +47,8 @@ const showVideoShots = () => {
   runQuery(async () => { const s = await ensureVideoShots(v); return Array.isArray(s) ? { items: s } : s; });
 };
 
-// ---------- per-video shot cache (strip, shot-level submit) ----------
-// [A] /api/video/<id>/shots. Resolves to an item[] or {error}.
+// per-video shot cache (strip, shot-level submit)
+// /api/video/<id>/shots. Resolves to an item[] or {error}.
 const shotCache = new Map();
 async function ensureVideoShots(id){
   if (!shotCache.has(id)){
@@ -57,7 +57,7 @@ async function ensureVideoShots(id){
   return shotCache.get(id);
 }
 
-// ---------- active item / focused shot ----------
+// active item / focused shot 
 function activate(i){
   const it = state.results[i]; if (!it) return;
   state.activeIndex = i; state.active = it;
@@ -105,16 +105,16 @@ const stepShot = d => {
   if (state.videoShots[j]) focusShot(state.videoShots[j]);
 };
 
-// ---------- what will be submitted ----------
+// what must be submitted 
 const shotTarget = s => ({ shot_id: s.shot_id, shot_ids: [s.shot_id], video_id: s.video_id, n: s.n,
                            start_ms: s.start_ms, end_ms: s.end_ms, label: `shot ${s.n}` });
 const segTarget = it => ({ shot_id: it.shot_id, shot_ids: it.shot_ids, video_id: it.video_id, n: it.n,
                            start_ms: it.start_ms, end_ms: it.end_ms,
                            label: it.shot_ids.length > 1 ? `segment of ${it.shot_ids.length} shots` : `shot ${it.n}` });
 
-// [B] Shot mode: the focused shot (strip click or default middle shot). Segment mode: the merged range.
-// For a non-active item (AVS selection) the middle shot's own range is looked up from the video's shot list.
-// Returns null if that lookup fails, and submit.js then refuses to continue.
+/* Shot mode: the focused shot (strip click or default middle shot). Segment mode: the merged range.
+    For a non-active item (AVS selection) the middle shot's own range is looked up from the video's shot list.
+    Returns null if that lookup fails, and submit.js then refuses to continue. */
 async function resolveTarget(it, rangeMode, useFocus){
   if (rangeMode === 'shot' && useFocus && state.shot && state.shot.video_id === it.video_id) return shotTarget(state.shot);
   if (rangeMode === 'segment' || it.shot_ids.length === 1) return segTarget(it);
@@ -133,7 +133,7 @@ function updateTarget(){
 $('range').addEventListener('change', updateTarget);
 const doSubmit = () => submit.requestSubmit(resolveTarget);
 
-// ---------- controls ----------
+// controls for ease of use
 $('mode').addEventListener('change', e => { state.mode = e.target.value; $('btn-submit-sel').hidden = state.mode !== 'avs'; });
 $('btn-similar').onclick = moreLikeThis;
 $('btn-video').onclick = showVideoShots;
@@ -165,7 +165,7 @@ X  select (AVS)     [ ]  search mode prev/next
 ?  this help        Esc  cancel/close</pre>`;
 }
 
-// ---------- shortcuts ----------
+// keyboard shortcuts
 document.addEventListener('keydown', e => {
   const tag = document.activeElement.tagName;
   const typing = tag === 'INPUT' || tag === 'SELECT';

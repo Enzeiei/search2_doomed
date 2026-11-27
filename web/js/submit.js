@@ -1,4 +1,4 @@
-// [B] Two-step submit: resolve range -> confirm bar -> POST each target -> verdict + history.
+//  Two-step submit: resolve range -> confirm bar -> POST each target -> verdict + history.
 import { state, emit } from './state.js';
 import * as api from './api.js';
 import * as history from './history.js';
@@ -11,7 +11,7 @@ let token = 0;           // lets Esc cancel while ranges are still being resolve
 export const evalId = () => $('eval').value.trim();
 export const isConfirming = () => pending !== null;
 
-// [B] resolveTarget(item, rangeMode, useFocus) comes from main.js (needs the per-video shot cache).
+//  resolveTarget(item, rangeMode, useFocus) comes from main.js (needs the per-video shot cache).
 export async function requestSubmit(resolveTarget){
   if (state.submitting) return;
   if (!evalId()){ showVerdict('ERROR', 'Enter the DRES evaluation ID first (top bar).'); $('eval').focus(); return; }
@@ -35,7 +35,7 @@ export async function requestSubmit(resolveTarget){
 }
 export function cancel(){ token++; pending = null; $('confirm').hidden = true; }
 
-// [B] Sequential, per-item status; the button is locked while in flight.
+//  Sequential, per-item status; the button is locked while in flight.
 export async function confirm(){
   if (!pending || state.submitting) return;
   const targets = pending; const evaluation_id = evalId(); cancel();
@@ -54,7 +54,7 @@ export async function confirm(){
   refresh(); emit();
 }
 
-// [A] Backend returns dres_client's dict: {http_status, accepted, response}. Failures at our API arrive as {error}.
+//  Backend returns dres_client's dict: {http_status, accepted, response}. Failures at our API arrive as {error}.
 // ASSUMPTION about DRES v2 (verify on the practice server): response.submission = CORRECT | WRONG | INDETERMINATE |
 // UNDECIDABLE, response.description = text, and HTTP 412 = no active task.
 function normalise(res){

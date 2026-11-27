@@ -98,7 +98,7 @@ def embed_all_videos(args):
         os.replace(temp, cache_dir / f"{v}.npz")
         completed_shots += len(ids)
         rate = completed_shots / (time.time() - start)
-#        print(f"[{k}/{len(to_do)}] {v}: {len(ids)} shots  ({rate:.1f} shots/s)", flush=True)
+#       print(f"[{k}/{len(to_do)}] {v}: {len(ids)} shots  ({rate:.1f} shots/s)", flush=True)
 
 # Merges all the per-video cache files and builds the files our search engine will load.
 def merge_cache(db_path, cache_dir, out_path, ids_out_path):
