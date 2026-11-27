@@ -8,7 +8,7 @@ export const label = it => it.shot_ids.length > 1
   ? `shots ${shotNumber(it.shot_ids[0])}-${shotNumber(it.shot_ids[it.shot_ids.length - 1])}`
   : `shot ${it.n}`;
 
-// FastAPI errors are {"detail": "..."} (or a list for 422). Flatten to one string.
+// FastAPI errors are {"detail": "..."} (or a list for 422); flatten to one string.
 function describe(body){
   const d = body && (body.detail ?? body.error);
   if (!d) return '';
@@ -48,9 +48,7 @@ export function shotToItem(video_id, s){
 }
 const asItems = res => (res.error ? res : { items: res.results.map(segmentToItem) });
 
-/* GET /api/search?q&mode&video_id&limit -> {query, took_ms, results: segment[]}.
-Bug to fix on the backend: video_id with mode visual/both currently returns a 500 (see review notes).
- limit is effectively capped at 200 (candidate pool). */
+// GET /api/search?q&mode&video_id&limit -> {query, took_ms, results: segment[]}.
 export async function search({ q, mode, w, video_id, video, limit}){
   const p = new URLSearchParams({ q, limit: limit ?? k ?? 60 });
   if (mode) p.set('mode', mode);
